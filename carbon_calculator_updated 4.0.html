@@ -1,0 +1,245 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carbon Footprint Calculator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: url('https://cdn.pixabay.com/photo/2011/12/14/12/11/earth-11015_1280.jpg') no-repeat center center fixed;
+      background-size: cover;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      animation: fadeIn 2s ease-in;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 40px 30px;
+      border-radius: 20px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      animation: slideUp 1s ease-out;
+    }
+    h2 {
+      margin-bottom: 20px;
+      font-size: 26px;
+      color: #2e7d32;
+    }
+    label {
+      font-weight: 600;
+      display: block;
+      text-align: left;
+      margin-bottom: 5px;
+    }
+    select, input {
+      width: 100%;
+      margin-bottom: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: box-shadow 0.3s;
+    }
+    select:focus, input:focus {
+      box-shadow: 0 0 5px rgba(46, 125, 50, 0.5);
+      outline: none;
+    }
+    button {
+      background-color: #388e3c;
+      color: white;
+      padding: 12px;
+      width: 100%;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.2s;
+    }
+    button:hover {
+      background-color: #2e7d32;
+      transform: scale(1.02);
+    }
+    .result, .badge, .tips {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: 500;
+      color: #1b5e20;
+      animation: fadeIn 1s ease-in-out;
+    }
+    .graphic {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      animation: fadeIn 1.5s ease-in-out;
+    }
+    .graphic img {
+      max-width: 80px;
+      height: auto;
+      transition: transform 0.3s ease-in-out;
+    }
+    .graphic img:hover {
+      transform: scale(1.1);
+    }
+    canvas {
+      margin-top: 30px;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🌿 Carbon Footprint Calculator</h2>
+    <label for="vehicle">Vehicle Type</label>
+    <select id="vehicle">
+      <option value="car">Car</option>
+      <option value="bus">Bus</option>
+      <option value="motorcycle">Motorcycle</option>
+      <option value="truck">Truck</option>
+      <option value="train">Train</option>
+    </select>
+    <label for="fuel">Fuel Type</label>
+    <select id="fuel">
+      <option value="petrol">Petrol</option>
+      <option value="diesel">Diesel</option>
+      <option value="electric">Electric</option>
+    </select>
+    <label for="distance">Distance (km)</label>
+    <input type="number" id="distance" min="0" placeholder="e.g. 100" />
+    <label for="threshold">Emission Threshold (kg)</label>
+    <input type="number" id="threshold" min="1" placeholder="e.g. 500" />
+    <button onclick="calculateFootprint()">Calculate</button>
+    <div class="result" id="result"></div>
+    <div class="badge" id="badge"></div>
+    <div class="tips" id="tips"></div>
+    <div class="graphic" id="graphic"></div>
+    <canvas id="emissionChart" width="300" height="300"></canvas>
+  </div>
+  <script>
+    const emissionFactors = {
+      car: { petrol: 0.192, diesel: 0.171, electric: 0.050 },
+      bus: { diesel: 0.105, electric: 0.030 },
+      motorcycle: { petrol: 0.103 },
+      truck: { diesel: 0.250 },
+      train: { diesel: 0.045, electric: 0.035 },
+    };
+
+    const vehicleImages = {
+      car: 'https://img.icons8.com/color/96/car.png',
+      bus: 'https://img.icons8.com/color/96/bus.png',
+      motorcycle: 'https://img.icons8.com/color/96/motorcycle.png',
+      truck: 'https://img.icons8.com/color/96/truck.png',
+      train: 'https://img.icons8.com/color/96/train.png',
+    };
+
+    let chartInstance = null;
+
+    function calculateFootprint() {
+      const vehicle = document.getElementById('vehicle').value;
+      const fuel = document.getElementById('fuel').value;
+      const distance = parseFloat(document.getElementById('distance').value);
+      const threshold = parseFloat(document.getElementById('threshold').value) || 500;
+      const resultDiv = document.getElementById('result');
+      const graphicDiv = document.getElementById('graphic');
+      const badgeDiv = document.getElementById('badge');
+      const tipsDiv = document.getElementById('tips');
+
+      const factor = emissionFactors[vehicle]?.[fuel];
+      if (factor === undefined || isNaN(distance) || distance < 0) {
+        resultDiv.textContent = '⚠️ Invalid input. Please check values.';
+        graphicDiv.innerHTML = '';
+        badgeDiv.innerHTML = '';
+        tipsDiv.innerHTML = '';
+        return;
+      }
+
+      const emissions = (factor * distance).toFixed(2);
+      resultDiv.textContent = `Estimated CO₂ emissions: ${emissions} kg`;
+
+      graphicDiv.innerHTML = `
+        <img src="${vehicleImages[vehicle]}" alt="${vehicle} image">
+        <img src="https://img.icons8.com/clouds/100/000000/earth-planet.png" alt="Earth Icon">
+      `;
+
+      badgeDiv.textContent = getBadge(emissions);
+      tipsDiv.textContent = getTips(emissions);
+
+      renderChart(emissions, threshold);
+    }
+
+    function getBadge(emissions) {
+      const e = parseFloat(emissions);
+      if (e < 5) return '🏅 Eco Champion!';
+      if (e < 20) return '✅ Doing Well!';
+      if (e < 50) return '⚠️ Room for Improvement';
+      return '❌ High Emissions! Consider Alternatives';
+    }
+
+    function getTips(emissions) {
+      const e = parseFloat(emissions);
+      if (e < 5) return 'Keep it up! Try walking or biking when possible.';
+      if (e < 20) return 'Consider carpooling or using public transport more often.';
+      if (e < 50) return 'Try switching to an electric vehicle or reducing trip frequency.';
+      return 'Use public transport, bike, or walk when possible. Consider offsetting your emissions.';
+    }
+
+    function renderChart(emissions, threshold = 500) {
+      const ctx = document.getElementById('emissionChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      const emissionVal = parseFloat(emissions);
+      const remaining = Math.max(0, threshold - emissionVal);
+
+      chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['CO₂ Emitted (kg)', 'Eco Limit Remaining'],
+          datasets: [{
+            data: [emissionVal, remaining],
+            backgroundColor: ['#66bb6a', '#c8e6c9'],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          animation: {
+            animateScale: true,
+            duration: 1500,
+            easing: 'easeOutBounce'
+          },
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.label}: ${ctx.raw.toFixed(2)} kg`
+              }
+            }
+          }
+        }
+      });
+    }
+  </script>
+<audio autoplay loop>
+  <source src="https://cdn.pixabay.com/audio/2022/10/28/audio_2f1d626548.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+</body>
+</html>
